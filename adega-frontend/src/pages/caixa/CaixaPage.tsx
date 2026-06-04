@@ -15,6 +15,7 @@ import {
 import { caixa as caixaApi, dashboard as dashboardApi } from '../../services/api'
 import type { FechamentoCaixa } from '../../types'
 import { exportFechamentoCSV, exportFechamentoPDF } from '../../utils/exportUtils'
+import { useAuth } from '../../hooks/useAuth'
 
 const SELECTED_ADEGA_KEY = 'selected_adega'
 const todayISO = new Date().toISOString().split('T')[0]
@@ -136,8 +137,10 @@ function ConfirmDialog({
 
 export default function CaixaPage() {
   const queryClient = useQueryClient()
+  const { getUser, isDono } = useAuth()
+  const user = getUser()
   const [selectedAdega, setSelectedAdega] = useState<string | null>(
-    localStorage.getItem(SELECTED_ADEGA_KEY),
+    localStorage.getItem(SELECTED_ADEGA_KEY) || user?.adegaId || null,
   )
   const [dinheiroContado, setDinheiroContado] = useState(0)
   const [observacao, setObservacao] = useState('')
@@ -210,7 +213,7 @@ export default function CaixaPage() {
     fecharMutation.mutate({ adegaId: selectedAdega, dinheiroContado, observacao })
   }
 
-  if (!selectedAdega) {
+  if (!selectedAdega && isDono()) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Fechamento de Caixa</h1>

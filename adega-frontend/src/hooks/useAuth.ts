@@ -1,5 +1,6 @@
 import { auth } from '../services/api'
 import type { AuthUser, LoginRequest } from '../types'
+import { queryClient } from '../lib/queryClient'
 
 const AUTH_KEY = 'adega_user'
 
@@ -31,7 +32,10 @@ export function useAuth() {
   }
 
   function logout(): void {
+    queryClient.clear()
     localStorage.removeItem(AUTH_KEY)
+    localStorage.removeItem('selected_adega')
+    localStorage.removeItem('adega_cart')
     window.location.href = '/login'
   }
 
