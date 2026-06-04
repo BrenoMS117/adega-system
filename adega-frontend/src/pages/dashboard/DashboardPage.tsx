@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { dashboard as dashboardApi } from '../../services/api'
 import type { DashboardData } from '../../types'
+import { useAuth } from '../../hooks/useAuth'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -117,17 +118,20 @@ function VendasHoraTooltip({ active, payload }: any) {
 // ─── DashboardPage ────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const [selectedAdega, setSelectedAdega] = useState<string | null>(
-    localStorage.getItem('selected_adega'),
-  )
+  const { getUser, isDono } = useAuth()
+  const user = getUser()
+
+  const getSelectedAdega = (): string | null => {
+    if (isDono()) return localStorage.getItem('selected_adega')
+    return user?.adegaId || null
+  }
+
+  const [selectedAdega, setSelectedAdega] = useState<string | null>(getSelectedAdega)
   const [selectedDate, setSelectedDate] = useState<string>(today())
 
-  // React to adega changes from the Layout pill selector
   useEffect(() => {
-    function handler(e: Event) {
-      const id = (e as CustomEvent<string | null>).detail
-      setSelectedAdega(id)
-    }
+    if (!isDono()) return
+    const handler = () => setSelectedAdega(localStorage.getItem('selected_adega'))
     window.addEventListener('adegaChanged', handler)
     return () => window.removeEventListener('adegaChanged', handler)
   }, [])
@@ -170,7 +174,7 @@ export default function DashboardPage() {
   )
 
   // ── No adega selected ───────────────────────────────────────────────────────
-  if (!selectedAdega) {
+  if (!selectedAdega && isDono()) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>

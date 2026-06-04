@@ -139,17 +139,20 @@ export default function CaixaPage() {
   const queryClient = useQueryClient()
   const { getUser, isDono } = useAuth()
   const user = getUser()
-  const [selectedAdega, setSelectedAdega] = useState<string | null>(
-    localStorage.getItem(SELECTED_ADEGA_KEY) || user?.adegaId || null,
-  )
+
+  const getSelectedAdega = (): string | null => {
+    if (isDono()) return localStorage.getItem(SELECTED_ADEGA_KEY)
+    return user?.adegaId || null
+  }
+
+  const [selectedAdega, setSelectedAdega] = useState<string | null>(getSelectedAdega)
   const [dinheiroContado, setDinheiroContado] = useState(0)
   const [observacao, setObservacao] = useState('')
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
   useEffect(() => {
-    const handler = (e: Event) => {
-      setSelectedAdega((e as CustomEvent<string>).detail)
-    }
+    if (!isDono()) return
+    const handler = () => setSelectedAdega(localStorage.getItem(SELECTED_ADEGA_KEY))
     window.addEventListener('adegaChanged', handler)
     return () => window.removeEventListener('adegaChanged', handler)
   }, [])

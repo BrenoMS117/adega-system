@@ -4,6 +4,7 @@ import { Search, Lightbulb, TrendingUp, TrendingDown, AlertTriangle, BarChart3, 
 import { cmv as cmvApi } from '../../services/api'
 import type { CmvData, CmvItem } from '../../types'
 import { exportCmvCSV, exportCmvPDF } from '../../utils/exportUtils'
+import { useAuth } from '../../hooks/useAuth'
 
 // ─── Utils ──────────────────────────────────────────────────────────────────
 
@@ -58,18 +59,23 @@ const PRESETS: { key: string; label: string }[] = [
 // ─── CmvPage ──────────────────────────────────────────────────────────────────
 
 export default function CmvPage() {
-  const [selectedAdega, setSelectedAdega] = useState<string | null>(
-    localStorage.getItem('selected_adega'),
-  )
+  const { getUser, isDono } = useAuth()
+  const user = getUser()
+
+  const getSelectedAdega = (): string | null => {
+    if (isDono()) return localStorage.getItem('selected_adega')
+    return user?.adegaId || null
+  }
+
+  const [selectedAdega, setSelectedAdega] = useState<string | null>(getSelectedAdega)
   const [dataInicio, setDataInicio] = useState(firstDayOfMonth())
   const [dataFim, setDataFim] = useState(toYMD(new Date()))
   const [periodoPreset, setPeriodoPreset] = useState('mes_atual')
   const [selectedCategoria, setSelectedCategoria] = useState('all')
 
   useEffect(() => {
-    const handler = (e: Event) => {
-      setSelectedAdega((e as CustomEvent<string | null>).detail)
-    }
+    if (!isDono()) return
+    const handler = () => setSelectedAdega(localStorage.getItem('selected_adega'))
     window.addEventListener('adegaChanged', handler)
     return () => window.removeEventListener('adegaChanged', handler)
   }, [])

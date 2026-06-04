@@ -447,11 +447,15 @@ function AjusteDialog({ item, onClose, onSubmit, isLoading }: AjusteDialogProps)
 
 export default function EstoquePage() {
   const queryClient = useQueryClient()
-  const { isDono } = useAuth()
+  const { getUser, isDono } = useAuth()
+  const user = getUser()
 
-  const [selectedAdega, setSelectedAdega] = useState<string | null>(
-    localStorage.getItem('selected_adega'),
-  )
+  const getSelectedAdega = (): string | null => {
+    if (isDono()) return localStorage.getItem('selected_adega')
+    return user?.adegaId || null
+  }
+
+  const [selectedAdega, setSelectedAdega] = useState<string | null>(getSelectedAdega)
   const [filterSituacao, setFilterSituacao] = useState('all')
   const [filterCategoria, setFilterCategoria] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
@@ -463,9 +467,8 @@ export default function EstoquePage() {
   const [ajusteItem, setAjusteItem] = useState<EstoqueItem | null>(null)
 
   useEffect(() => {
-    const handler = (e: Event) => {
-      setSelectedAdega((e as CustomEvent<string | null>).detail)
-    }
+    if (!isDono()) return
+    const handler = () => setSelectedAdega(localStorage.getItem('selected_adega'))
     window.addEventListener('adegaChanged', handler)
     return () => window.removeEventListener('adegaChanged', handler)
   }, [])

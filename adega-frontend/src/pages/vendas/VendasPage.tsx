@@ -295,11 +295,15 @@ function CancelarDialog({ venda, isLoading, onClose, onConfirm }: CancelarDialog
 
 export default function VendasPage() {
   const queryClient = useQueryClient()
-  const { isDono } = useAuth()
+  const { getUser, isDono } = useAuth()
+  const user = getUser()
 
-  const [selectedAdega, setSelectedAdega] = useState<string | null>(
-    localStorage.getItem('selected_adega'),
-  )
+  const getSelectedAdega = (): string | null => {
+    if (isDono()) return localStorage.getItem('selected_adega')
+    return user?.adegaId || null
+  }
+
+  const [selectedAdega, setSelectedAdega] = useState<string | null>(getSelectedAdega)
   const [dataInicio, setDataInicio] = useState(todayStr())
   const [dataFim, setDataFim] = useState(todayStr())
   const [filterStatus, setFilterStatus] = useState('all')
@@ -309,9 +313,8 @@ export default function VendasPage() {
   const [showCancelarDialog, setShowCancelarDialog] = useState(false)
 
   useEffect(() => {
-    const handler = (e: Event) => {
-      setSelectedAdega((e as CustomEvent<string | null>).detail)
-    }
+    if (!isDono()) return
+    const handler = () => setSelectedAdega(localStorage.getItem('selected_adega'))
     window.addEventListener('adegaChanged', handler)
     return () => window.removeEventListener('adegaChanged', handler)
   }, [])
