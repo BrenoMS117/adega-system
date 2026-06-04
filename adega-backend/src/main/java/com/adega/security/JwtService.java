@@ -5,6 +5,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +22,16 @@ public class JwtService {
 
     @Value("${jwt.expiration}")
     private long expiration;
+
+    private static final String DEFAULT_SECRET = "minha-chave-secreta-super-longa-minimo-32-caracteres";
+
+    @PostConstruct
+    public void validateSecret() {
+        if (secret == null || secret.length() < 32 || secret.equals(DEFAULT_SECRET)) {
+            throw new IllegalStateException(
+                    "JWT secret is too weak or is using the default value. Set a strong JWT_SECRET environment variable.");
+        }
+    }
 
     public String generateToken(Usuario usuario) {
         return Jwts.builder()

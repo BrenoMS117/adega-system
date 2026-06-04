@@ -3,10 +3,12 @@ package com.adega.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
@@ -37,6 +39,11 @@ public class GlobalExceptionHandler {
                 .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
                 .collect(Collectors.joining(", "));
         return build(HttpStatus.BAD_REQUEST, message, request);
+    }
+
+    @ExceptionHandler({MaxUploadSizeExceededException.class, HttpMessageNotReadableException.class})
+    public ResponseEntity<ErrorResponse> handlePayloadError(Exception ex, HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, "Requisição inválida ou payload muito grande", request);
     }
 
     @ExceptionHandler(Exception.class)
