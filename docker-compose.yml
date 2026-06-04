@@ -16,7 +16,7 @@ services:
       timeout: 5s
       retries: 5
 
-  backend:
+backend:
     build:
       context: ./adega-backend
       dockerfile: Dockerfile
@@ -25,7 +25,7 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/adega
       DB_USERNAME: postgres
       DB_PASSWORD: ${DB_PASSWORD}
-    JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET}    
     ports:
       - "8080:8080"
     depends_on:
