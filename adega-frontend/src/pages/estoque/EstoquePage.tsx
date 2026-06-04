@@ -8,20 +8,12 @@ import { Search, Plus, History, Loader2, X, PackageOpen, SlidersHorizontal } fro
 import { estoque as estoqueApi } from '../../services/api'
 import type { EstoqueItem, MovimentoEstoque } from '../../types'
 import { useAuth } from '../../hooks/useAuth'
+import { fmtDateTime } from '../../utils/dateUtils'
 
 // ─── Utils ────────────────────────────────────────────────────────────────────
 
 const fmt = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-
-const fmtDate = (iso: string) => {
-  const d = new Date(iso)
-  return (
-    d.toLocaleDateString('pt-BR') +
-    ' ' +
-    d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-  )
-}
 
 const optPosNum = z.preprocess(
   (v) =>
@@ -279,7 +271,7 @@ function HistoricoDialog({ item, onClose }: HistoricoDialogProps) {
                       <span className="text-sm font-semibold text-gray-900">
                         {cfg.sign} {m.quantidade}
                       </span>
-                      <span className="text-xs text-gray-400">{fmtDate(m.dataHora)}</span>
+                      <span className="text-xs text-gray-400">{fmtDateTime(m.dataHora)}</span>
                     </div>
                     <p className="text-xs text-gray-500 truncate">{m.usuarioNome}</p>
                     {m.observacao && (

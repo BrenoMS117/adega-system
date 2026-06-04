@@ -16,16 +16,14 @@ import { caixa as caixaApi, dashboard as dashboardApi } from '../../services/api
 import type { FechamentoCaixa } from '../../types'
 import { exportFechamentoCSV, exportFechamentoPDF } from '../../utils/exportUtils'
 import { useAuth } from '../../hooks/useAuth'
+import { fmtDate, TZ } from '../../utils/dateUtils'
 
 const SELECTED_ADEGA_KEY = 'selected_adega'
 const todayISO = new Date().toISOString().split('T')[0]
-const todayDisplay = new Date().toLocaleDateString('pt-BR')
+const todayDisplay = new Date().toLocaleDateString('pt-BR', { timeZone: TZ })
 
 const fmt = (v: number) =>
   (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-
-const fmtDate = (iso: string) =>
-  new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR')
 
 const FORMA_LABELS: Record<string, string> = {
   DINHEIRO: 'Dinheiro',

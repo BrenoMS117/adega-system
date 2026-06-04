@@ -6,20 +6,12 @@ import { vendas as vendasApi } from '../../services/api'
 import type { Venda } from '../../types'
 import { useAuth } from '../../hooks/useAuth'
 import { exportVendasCSV, exportVendasPDF } from '../../utils/exportUtils'
+import { fmtDateTime } from '../../utils/dateUtils'
 
 // ─── Utils ──────────────────────────────────────────────────────────────────
 
 const fmt = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-
-const fmtDateTime = (iso: string) => {
-  const d = new Date(iso)
-  return (
-    d.toLocaleDateString('pt-BR') +
-    ' ' +
-    d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-  )
-}
 
 const todayStr = () => {
   const d = new Date()
