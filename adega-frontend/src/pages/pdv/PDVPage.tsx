@@ -13,17 +13,9 @@ import {
 import { produtos as produtosApi, vendas as vendasApi } from '../../services/api'
 import type { Produto, VariacaoProduto } from '../../types'
 import { useAuth } from '../../hooks/useAuth'
+import { useCart } from '../../hooks/useCart'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type CartItem = {
-  variacaoId: string
-  produtoNome: string
-  variacaoDescricao: string
-  precoUnitario: number
-  quantidade: number
-  descontoValor: number
-}
 
 type Pagamento = { forma: string; valor: number }
 
@@ -304,9 +296,9 @@ export default function PDVPage() {
   })
 
   // ── Local state ────────────────────────────────────────────────────────────
+  const { cart, addToCart, updateQuantidade, updateDesconto, removeItem, clearCart, totalBruto, totalDesconto, totalLiquido } = useCart()
   const [selectedCategoria, setSelectedCategoria] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const [cart, setCart] = useState<CartItem[]>([])
   const [showVariacaoDialog, setShowVariacaoDialog] = useState(false)
   const [selectedProduto, setSelectedProduto] = useState<Produto | null>(null)
   const [showPagamentoDialog, setShowPagamentoDialog] = useState(false)
@@ -327,57 +319,6 @@ export default function PDVPage() {
       return matchSearch && matchCat
     })
   }, [produtosList, searchTerm, selectedCategoria])
-
-  const totalBruto = cart.reduce((s, i) => s + i.precoUnitario * i.quantidade, 0)
-  const totalDesconto = cart.reduce((s, i) => s + i.descontoValor, 0)
-  const totalLiquido = totalBruto - totalDesconto
-
-  // ── Cart helpers ───────────────────────────────────────────────────────────
-  function addToCart(variacao: VariacaoProduto, produtoNome: string) {
-    setCart((prev) => {
-      const exists = prev.find((i) => i.variacaoId === variacao.id)
-      if (exists) {
-        return prev.map((i) =>
-          i.variacaoId === variacao.id ? { ...i, quantidade: i.quantidade + 1 } : i,
-        )
-      }
-      return [
-        ...prev,
-        {
-          variacaoId: variacao.id,
-          produtoNome,
-          variacaoDescricao: variacao.descricao,
-          precoUnitario: variacao.precoVenda,
-          quantidade: 1,
-          descontoValor: 0,
-        },
-      ]
-    })
-  }
-
-  function updateQuantidade(variacaoId: string, delta: number) {
-    setCart((prev) =>
-      prev
-        .map((i) =>
-          i.variacaoId === variacaoId ? { ...i, quantidade: i.quantidade + delta } : i,
-        )
-        .filter((i) => i.quantidade > 0),
-    )
-  }
-
-  function updateDesconto(variacaoId: string, valor: number) {
-    setCart((prev) =>
-      prev.map((i) => (i.variacaoId === variacaoId ? { ...i, descontoValor: valor } : i)),
-    )
-  }
-
-  function removeItem(variacaoId: string) {
-    setCart((prev) => prev.filter((i) => i.variacaoId !== variacaoId))
-  }
-
-  function clearCart() {
-    setCart([])
-  }
 
   // ── Catalog interaction ────────────────────────────────────────────────────
   function handleProdutoClick(produto: Produto) {
