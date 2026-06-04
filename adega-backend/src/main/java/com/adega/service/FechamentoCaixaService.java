@@ -39,7 +39,10 @@ public class FechamentoCaixaService {
     public FechamentoCaixaResponse fechar(FechamentoCaixaRequest request, UUID usuarioId) {
         LocalDate hoje = LocalDate.now();
 
-        if (fechamentoCaixaRepository.findByAdegaIdAndData(request.adegaId(), hoje).isPresent()) {
+        java.util.Optional<FechamentoCaixa> existente =
+                fechamentoCaixaRepository.findByAdegaIdAndData(request.adegaId(), hoje);
+
+        if (existente.isPresent() && !existente.get().isReaberto()) {
             throw new BusinessException("Caixa já foi fechado hoje para esta adega");
         }
 
@@ -50,9 +53,29 @@ public class FechamentoCaixaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado: " + usuarioId));
 
         Aggregates agg = aggregate(request.adegaId(), hoje);
-
         BigDecimal dinheiroSistema = agg.totalDinheiro;
         BigDecimal diferenca = request.dinheiroContado().subtract(dinheiroSistema);
+
+        if (existente.isPresent()) {
+            // Caixa was reopened — update in place and seal again
+            FechamentoCaixa f = existente.get();
+            f.setUsuario(usuario);
+            f.setTotalVendas(agg.totalVendas);
+            f.setTotalFaturamento(agg.totalFaturamento);
+            f.setTotalDinheiro(agg.totalDinheiro);
+            f.setTotalPix(agg.totalPix);
+            f.setTotalCartao(agg.totalCartao);
+            f.setTotalBeneficio(agg.totalBeneficio);
+            f.setTotalDescontos(agg.totalDescontos);
+            f.setDinheiroSistema(dinheiroSistema);
+            f.setDinheiroContado(request.dinheiroContado());
+            f.setDiferenca(diferenca);
+            f.setObservacao(request.observacao());
+            f.setReaberto(false);
+            f.setReabertoFor(null);
+            f.setReabertoEm(null);
+            return toResponse(fechamentoCaixaRepository.save(f));
+        }
 
         FechamentoCaixa fechamento = FechamentoCaixa.builder()
                 .adega(adega)
@@ -74,34 +97,62 @@ public class FechamentoCaixaService {
         return toResponse(fechamentoCaixaRepository.save(fechamento));
     }
 
+    @Transactional
+    public FechamentoCaixaResponse reabrir(UUID adegaId, UUID usuarioId) {
+        FechamentoCaixa fechamento = fechamentoCaixaRepository
+                .findByAdegaIdAndData(adegaId, LocalDate.now())
+                .orElseThrow(() -> new BusinessException("Nenhum fechamento encontrado para hoje"));
+
+        if (fechamento.isReaberto()) {
+            throw new BusinessException("Caixa já está aberto");
+        }
+
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado: " + usuarioId));
+
+        fechamento.setReaberto(true);
+        fechamento.setReabertoFor(usuario);
+        fechamento.setReabertoEm(LocalDateTime.now());
+
+        return toResponse(fechamentoCaixaRepository.save(fechamento));
+    }
+
     @Transactional(readOnly = true)
     public FechamentoCaixaResponse getCaixaAberto(UUID adegaId) {
         LocalDate hoje = LocalDate.now();
 
-        return fechamentoCaixaRepository.findByAdegaIdAndData(adegaId, hoje)
-                .map(this::toResponse)
-                .orElseGet(() -> {
-                    Adega adega = adegaRepository.findById(adegaId)
-                            .orElseThrow(() -> new ResourceNotFoundException("Adega não encontrada: " + adegaId));
-                    Aggregates agg = aggregate(adegaId, hoje);
-                    return new FechamentoCaixaResponse(
-                            null,
-                            hoje,
-                            adega.getNome(),
-                            null,
-                            agg.totalVendas,
-                            agg.totalFaturamento,
-                            agg.totalDinheiro,
-                            agg.totalPix,
-                            agg.totalCartao,
-                            agg.totalBeneficio,
-                            agg.totalDescontos,
-                            agg.totalDinheiro,
-                            BigDecimal.ZERO,
-                            BigDecimal.ZERO,
-                            null
-                    );
-                });
+        java.util.Optional<FechamentoCaixa> opt =
+                fechamentoCaixaRepository.findByAdegaIdAndData(adegaId, hoje);
+
+        // Closed and not reopened → return the stored record (id set signals "closed")
+        if (opt.isPresent() && !opt.get().isReaberto()) {
+            return toResponse(opt.get());
+        }
+
+        // Not found or reopened → return live aggregates (id=null signals "open")
+        Adega adega = adegaRepository.findById(adegaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Adega não encontrada: " + adegaId));
+        Aggregates agg = aggregate(adegaId, hoje);
+        return new FechamentoCaixaResponse(
+                null,
+                hoje,
+                adega.getNome(),
+                null,
+                agg.totalVendas,
+                agg.totalFaturamento,
+                agg.totalDinheiro,
+                agg.totalPix,
+                agg.totalCartao,
+                agg.totalBeneficio,
+                agg.totalDescontos,
+                agg.totalDinheiro,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                null,
+                false,
+                null,
+                null
+        );
     }
 
     @Transactional(readOnly = true)
@@ -172,7 +223,10 @@ public class FechamentoCaixaService {
                 f.getDinheiroSistema(),
                 f.getDinheiroContado(),
                 f.getDiferenca(),
-                f.getObservacao()
+                f.getObservacao(),
+                f.isReaberto(),
+                f.getReabertoFor() != null ? f.getReabertoFor().getNome() : null,
+                f.getReabertoEm()
         );
     }
 }

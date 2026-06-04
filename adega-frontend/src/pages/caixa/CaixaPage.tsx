@@ -11,12 +11,13 @@ import {
   X,
   FileSpreadsheet,
   FileText,
+  Unlock,
 } from 'lucide-react'
 import { caixa as caixaApi, dashboard as dashboardApi } from '../../services/api'
 import type { FechamentoCaixa } from '../../types'
 import { exportFechamentoCSV, exportFechamentoPDF } from '../../utils/exportUtils'
 import { useAuth } from '../../hooks/useAuth'
-import { fmtDate, TZ } from '../../utils/dateUtils'
+import { fmtDate, fmtTime, TZ } from '../../utils/dateUtils'
 
 const SELECTED_ADEGA_KEY = 'selected_adega'
 const todayISO = new Date().toISOString().split('T')[0]
@@ -131,6 +132,73 @@ function ConfirmDialog({
   )
 }
 
+// ——— ReabrirDialog ———
+
+interface ReabrirDialogProps {
+  caixaAberto: FechamentoCaixa | undefined
+  isLoading: boolean
+  onConfirm: () => void
+  onClose: () => void
+}
+
+function ReabrirDialog({ caixaAberto, isLoading, onConfirm, onClose }: ReabrirDialogProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Reabrir Caixa</h2>
+          <button
+            onClick={onClose}
+            disabled={isLoading}
+            className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+          <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+          <span>
+            <strong>Atenção:</strong> Reabrir o caixa permitirá novas vendas após o fechamento.
+            Use apenas em caso de erro no fechamento.
+          </span>
+        </div>
+
+        <div className="text-sm divide-y divide-gray-100">
+          {[
+            ['Adega', caixaAberto?.adegaNome ?? '—'],
+            ['Data', caixaAberto?.data ? fmtDate(caixaAberto.data) : '—'],
+            ['Fechado por', caixaAberto?.usuarioNome ?? '—'],
+            ['Total de vendas', String(caixaAberto?.totalVendas ?? 0)],
+          ].map(([label, value]) => (
+            <div key={label} className="flex justify-between py-2">
+              <span className="text-gray-500">{label}</span>
+              <span className="font-medium text-gray-900">{value}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-3 pt-1">
+          <button
+            onClick={onClose}
+            disabled={isLoading}
+            className="flex-1 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isLoading}
+            className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 rounded-lg text-sm font-medium text-white disabled:opacity-50"
+          >
+            {isLoading ? 'Reabrindo...' : 'Confirmar Reabertura'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ——— Main Page ———
 
 export default function CaixaPage() {
@@ -147,6 +215,7 @@ export default function CaixaPage() {
   const [dinheiroContado, setDinheiroContado] = useState(0)
   const [observacao, setObservacao] = useState('')
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [showReabrirDialog, setShowReabrirDialog] = useState(false)
 
   useEffect(() => {
     if (!isDono()) return
@@ -189,8 +258,21 @@ export default function CaixaPage() {
     },
   })
 
-  // Backend returns id=null when caixa is not yet closed for today
-  const isClosed = !!(caixaAberto as any)?.id
+  const reabrirMutation = useMutation({
+    mutationFn: () => caixaApi.reabrirCaixa({ adegaId: selectedAdega! }),
+    onSuccess: () => {
+      toast.success('Caixa reaberto. Novas vendas liberadas.')
+      setShowReabrirDialog(false)
+      queryClient.invalidateQueries({ queryKey: ['caixaAberto', selectedAdega] })
+      queryClient.invalidateQueries({ queryKey: ['historicoCaixa', selectedAdega] })
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message ?? 'Erro ao reabrir o caixa.')
+    },
+  })
+
+  // id is set when closed; reaberto=true means it was reopened (treat as open)
+  const isClosed = !!(caixaAberto?.id) && !caixaAberto?.reaberto
 
   const diferenca = dinheiroContado - (caixaAberto?.totalDinheiro ?? 0)
 
@@ -236,13 +318,32 @@ export default function CaixaPage() {
 
         {/* Closed banner */}
         {isClosed && (
-          <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4 text-green-800">
-            <CheckCircle size={20} className="flex-shrink-0" />
-            <span>
-              Caixa fechado em{' '}
-              <strong>{caixaAberto?.data ? fmtDate(caixaAberto.data) : todayDisplay}</strong> por{' '}
-              <strong>{caixaAberto?.usuarioNome ?? '—'}</strong>.
-            </span>
+          <div className="flex items-start justify-between gap-3 bg-green-50 border border-green-200 rounded-xl p-4 text-green-800">
+            <div className="flex items-start gap-3">
+              <CheckCircle size={20} className="flex-shrink-0 mt-0.5" />
+              <div className="text-sm space-y-0.5">
+                <p>
+                  Caixa fechado em{' '}
+                  <strong>{caixaAberto?.data ? fmtDate(caixaAberto.data) : todayDisplay}</strong>{' '}
+                  por <strong>{caixaAberto?.usuarioNome ?? '—'}</strong>.
+                </p>
+                {caixaAberto?.reabertoForNome && caixaAberto.reabertoEm && (
+                  <p className="text-green-700">
+                    Anteriormente reaberto por <strong>{caixaAberto.reabertoForNome}</strong> às{' '}
+                    <strong>{fmtTime(caixaAberto.reabertoEm)}</strong>.
+                  </p>
+                )}
+              </div>
+            </div>
+            {isDono() && (
+              <button
+                onClick={() => setShowReabrirDialog(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg shrink-0 transition-colors"
+              >
+                <Unlock size={13} />
+                Reabrir Caixa
+              </button>
+            )}
           </div>
         )}
 
@@ -505,6 +606,7 @@ export default function CaixaPage() {
                   <th className="text-right pb-2 font-medium">Descontos</th>
                   <th className="text-right pb-2 font-medium">Diferença</th>
                   <th className="text-left pb-2 font-medium">Fechado por</th>
+                  <th className="text-left pb-2 font-medium">Situação</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -526,6 +628,17 @@ export default function CaixaPage() {
                       )}
                     </td>
                     <td className="py-2 text-gray-700">{h.usuarioNome}</td>
+                    <td className="py-2">
+                      {h.reaberto ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                          Reaberto
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                          Fechado
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -544,6 +657,17 @@ export default function CaixaPage() {
           onConfirm={handleFechar}
           onClose={() => {
             if (!fecharMutation.isPending) setShowConfirmDialog(false)
+          }}
+        />
+      )}
+
+      {showReabrirDialog && (
+        <ReabrirDialog
+          caixaAberto={caixaAberto}
+          isLoading={reabrirMutation.isPending}
+          onConfirm={() => reabrirMutation.mutate()}
+          onClose={() => {
+            if (!reabrirMutation.isPending) setShowReabrirDialog(false)
           }}
         />
       )}

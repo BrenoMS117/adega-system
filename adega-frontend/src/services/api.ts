@@ -135,6 +135,9 @@ export const caixa = {
 
   getHistoricoCaixa: (adegaId: string): Promise<FechamentoCaixa[]> =>
     api.get<FechamentoCaixa[]>('/caixa/historico', { params: { adegaId } }).then((r) => r.data),
+
+  reabrirCaixa: (data: { adegaId: string }): Promise<FechamentoCaixa> =>
+    api.post<FechamentoCaixa>('/caixa/reabrir', data).then((r) => r.data),
 }
 
 // Dashboard

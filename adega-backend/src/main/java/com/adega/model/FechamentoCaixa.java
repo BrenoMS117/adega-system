@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -63,4 +64,15 @@ public class FechamentoCaixa {
 
     @Column(columnDefinition = "TEXT")
     private String observacao;
+
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean reaberto = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reaberto_por")
+    private Usuario reabertoFor;
+
+    @Column(name = "reaberto_em")
+    private LocalDateTime reabertoEm;
 }

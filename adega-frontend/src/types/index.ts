@@ -178,6 +178,9 @@ export interface FechamentoCaixa {
   dinheiroContado: number
   diferenca: number
   observacao?: string
+  reaberto: boolean
+  reabertoForNome?: string
+  reabertoEm?: string
 }
 
 export interface FechamentoCaixaRequest {

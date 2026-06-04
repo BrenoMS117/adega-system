@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +31,7 @@ public class VendaService {
     private final AdegaRepository adegaRepository;
     private final VariacaoProdutoRepository variacaoProdutoRepository;
     private final MovimentoEstoqueRepository movimentoEstoqueRepository;
+    private final com.adega.repository.FechamentoCaixaRepository fechamentoCaixaRepository;
 
     @Transactional
     public VendaResponse create(VendaRequest request, UUID usuarioId) {
@@ -38,6 +40,14 @@ public class VendaService {
 
         Adega adega = adegaRepository.findById(request.adegaId())
                 .orElseThrow(() -> new ResourceNotFoundException("Adega não encontrada: " + request.adegaId()));
+
+        fechamentoCaixaRepository.findByAdegaIdAndData(adega.getId(), LocalDate.now())
+                .ifPresent(f -> {
+                    if (!f.isReaberto()) {
+                        throw new BusinessException(
+                                "Caixa fechado. Solicite ao responsável para reabrir o caixa antes de realizar novas vendas.");
+                    }
+                });
 
         BigDecimal totalBruto = BigDecimal.ZERO;
         BigDecimal totalDesconto = BigDecimal.ZERO;

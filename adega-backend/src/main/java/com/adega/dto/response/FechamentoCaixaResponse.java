@@ -2,6 +2,7 @@ package com.adega.dto.response;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record FechamentoCaixaResponse(
@@ -19,5 +20,8 @@ public record FechamentoCaixaResponse(
         BigDecimal dinheiroSistema,
         BigDecimal dinheiroContado,
         BigDecimal diferenca,
-        String observacao
+        String observacao,
+        boolean reaberto,
+        String reabertoForNome,
+        LocalDateTime reabertoEm
 ) {}

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   ShoppingCart,
@@ -9,8 +10,9 @@ import {
   Search,
   Check,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react'
-import { produtos as produtosApi, vendas as vendasApi } from '../../services/api'
+import { produtos as produtosApi, vendas as vendasApi, caixa as caixaApi } from '../../services/api'
 import type { Produto, VariacaoProduto } from '../../types'
 import { useAuth } from '../../hooks/useAuth'
 import { useCart } from '../../hooks/useCart'
@@ -126,6 +128,7 @@ interface PagamentoDialogProps {
   totalLiquido: number
   pagamentos: Pagamento[]
   isLoading: boolean
+  caixaFechado: boolean
   onTogglePagamento: (forma: string) => void
   onUpdateValor: (forma: string, valor: number) => void
   onConfirmar: () => void
@@ -136,6 +139,7 @@ function PagamentoDialog({
   totalLiquido,
   pagamentos,
   isLoading,
+  caixaFechado,
   onTogglePagamento,
   onUpdateValor,
   onConfirmar,
@@ -250,9 +254,15 @@ function PagamentoDialog({
         </div>
 
         {/* Confirm */}
+        {caixaFechado && (
+          <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700 mb-1">
+            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+            Caixa fechado. Vendas bloqueadas.
+          </div>
+        )}
         <button
           onClick={onConfirmar}
-          disabled={!isBalanced || isLoading}
+          disabled={!isBalanced || isLoading || caixaFechado}
           className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-100 disabled:text-gray-400 text-white py-3 rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2"
         >
           {isLoading ? (
@@ -272,14 +282,25 @@ function PagamentoDialog({
 // ─── PDVPage ──────────────────────────────────────────────────────────────────
 
 export default function PDVPage() {
-  const { getUser } = useAuth()
+  const { getUser, isDono } = useAuth()
   const user = getUser()!
+
+  const adegaId = localStorage.getItem('selected_adega') ?? user.adegaId ?? null
 
   // ── Data fetching ──────────────────────────────────────────────────────────
   const { data: produtosList = [], isLoading: loadingProdutos } = useQuery({
     queryKey: ['produtos', { ativo: true }],
     queryFn: () => produtosApi.getProdutos({ ativo: true }),
   })
+
+  const { data: caixaStatus } = useQuery({
+    queryKey: ['caixa-status', adegaId],
+    queryFn: () => caixaApi.getCaixaAberto(adegaId!),
+    enabled: !!adegaId,
+    refetchInterval: 60_000,
+  })
+
+  const caixaFechado = !!(caixaStatus?.id) && !caixaStatus?.reaberto
 
   const { mutate: submitVenda, isPending: isCreatingVenda } = useMutation({
     mutationFn: vendasApi.createVenda,
@@ -360,13 +381,17 @@ export default function PDVPage() {
   }
 
   function handleConfirmarVenda() {
-    const adegaId = localStorage.getItem('selected_adega') ?? user.adegaId ?? ''
-    if (!adegaId) {
+    if (caixaFechado) {
+      toast.error('Caixa fechado. Vendas bloqueadas.')
+      return
+    }
+    const vendaAdegaId = adegaId ?? ''
+    if (!vendaAdegaId) {
       toast.error('Selecione uma adega no topo da tela antes de registrar a venda')
       return
     }
     submitVenda({
-      adegaId,
+      adegaId: vendaAdegaId,
       canal: 'PRESENCIAL',
       itens: cart.map((i) => ({
         variacaoId: i.variacaoId,
@@ -380,6 +405,19 @@ export default function PDVPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
+      {caixaFechado && (
+        <div className="flex items-center gap-3 bg-red-50 border-b border-red-200 px-4 py-2.5 text-red-700 text-sm">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <span className="flex-1">
+            Caixa fechado. Novas vendas bloqueadas. Solicite ao responsável para reabrir o caixa.
+          </span>
+          {isDono() && (
+            <Link to="/caixa" className="text-xs font-semibold underline hover:text-red-900 shrink-0">
+              → Ir para Fechamento de Caixa
+            </Link>
+          )}
+        </div>
+      )}
       <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
 
         {/* ── LEFT: Catalog ── */}
@@ -574,7 +612,7 @@ export default function PDVPage() {
 
             <button
               onClick={handleFinalizarVenda}
-              disabled={cart.length === 0}
+              disabled={cart.length === 0 || caixaFechado}
               className="w-full mt-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-100 disabled:text-gray-400 text-white py-2.5 rounded-xl font-semibold text-sm transition-colors"
             >
               Finalizar Venda
@@ -608,6 +646,7 @@ export default function PDVPage() {
           totalLiquido={totalLiquido}
           pagamentos={pagamentos}
           isLoading={isCreatingVenda}
+          caixaFechado={caixaFechado}
           onTogglePagamento={handleTogglePagamento}
           onUpdateValor={handleUpdateValor}
           onConfirmar={handleConfirmarVenda}
