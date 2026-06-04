@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Store, Loader2 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
@@ -101,6 +101,15 @@ export default function LoginPage() {
             )}
           </button>
         </form>
+
+        <div className="mt-6 text-center">
+          <Link
+            to="/forgot-password"
+            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            Esqueci minha senha
+          </Link>
+        </div>
       </div>
     </div>
   )

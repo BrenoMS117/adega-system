@@ -25,7 +25,8 @@ backend:
       DB_URL: jdbc:postgresql://postgres:5432/adega
       DB_USERNAME: postgres
       DB_PASSWORD: ${DB_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}    
+      JWT_SECRET: ${JWT_SECRET}
+      SWAGGER_ENABLED: "false"
     ports:
       - "8080:8080"
     depends_on:

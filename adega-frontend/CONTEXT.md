@@ -419,11 +419,20 @@ Migrations live in `adega-backend/src/main/resources/db/migration/V1__create_tab
 - **`adega-frontend/Dockerfile`**: multi-stage build (`node:20-alpine` → `nginx:alpine`).
 - **`adega-frontend/nginx.conf`**: serve React SPA + proxy `/api/*` para o container do backend.
 - **`.env.example`**: variáveis `DB_PASSWORD` e `JWT_SECRET`.
-- **`.gitignore`**: ignora `.env`, `target/`, `node_modules/`.
+- **`.gitignore`**: ignora `.env`, `target/`, `node_modules/`, `docker-compose.override.yml`.
 - **`README.md`**: comandos para subir, parar e resetar o sistema.
 - Para subir tudo: `docker-compose up --build` (a partir da pasta `Projeto_Adega`).
 - Sistema disponível em `http://localhost` após a inicialização.
-- Swagger disponível em `http://localhost/swagger-ui/index.html`.
+- Swagger disponível em `http://localhost/swagger-ui/index.html` (apenas em desenvolvimento local).
+- **Swagger habilitado via override**: `docker-compose.yml` define `SWAGGER_ENABLED: "false"` no backend (padrão produção). `docker-compose.override.yml` sobrescreve para `"true"` localmente — carregado automaticamente pelo Docker Compose, não commitado no git.
+
+### Segurança e Performance (backend)
+- **`application.properties`**: adicionados `spring.jpa.open-in-view=false` (evita sessões JPA abertas durante renderização), limites de payload Tomcat (`max-http-form-post-size` e `max-swallow-size` = 2MB), `spring.mvc.pathmatch.use-suffix-pattern=false` (desativa suffix pattern matching deprecado). Swagger desabilitado por padrão via `springdoc.swagger-ui.enabled=${SWAGGER_ENABLED:false}` e `springdoc.api-docs.enabled=${SWAGGER_ENABLED:false}`.
+- **`JwtService.java`**: `@PostConstruct validateSecret()` — a aplicação recusa iniciar se o `JWT_SECRET` for igual ao valor padrão hardcoded (`minha-chave-secreta-super-longa-minimo-32-caracteres`) ou tiver menos de 32 caracteres. Força uso de segredo forte em todos os ambientes.
+- **`LoginRateLimiter.java`** (novo — `com.adega.security`): rate limiter em memória usando `ConcurrentHashMap<String, LoginAttempts>`. Chave = IP do cliente. Limite: 10 tentativas em 5 minutos; bloqueia o IP por 15 minutos ao exceder. Métodos: `isBlocked(ip)`, `registerAttempt(ip)`, `registerSuccess(ip)`. Limpeza de entradas expiradas a cada 30 minutos via `@Scheduled(fixedDelay = 30 * 60 * 1000)`.
+- **`AuthController.java`**: injeção do `LoginRateLimiter`; IP extraído do header `X-Forwarded-For` (primeiro segmento) com fallback para `request.getRemoteAddr()`; retorna `429 Too Many Requests` com mensagem em português se IP bloqueado; `registerSuccess` chamado após login bem-sucedido; `registerAttempt` chamado no `catch (BusinessException)` antes de relançar a exceção.
+- **`GlobalExceptionHandler.java`**: handler unificado para `MaxUploadSizeExceededException` e `HttpMessageNotReadableException` — retorna `400` com mensagem `"Requisição inválida ou payload muito grande"`.
+- **`AdegaApplication.java`**: `@EnableScheduling` adicionado para ativar o job de limpeza do `LoginRateLimiter`.
 
 ### Notificações de Estoque Crítico (sino na topbar)
 - **Hook**: `src/hooks/useEstoqueAlertas.ts` — `useQuery` com key `['estoque-alertas']`, chama `GET /api/estoque` sem filtro de adega (retorna todas), filtra `situacao === 'CRITICO'` e `situacao === 'BAIXO'`, `refetchInterval` de 5 minutos, `enabled: isDono()`.

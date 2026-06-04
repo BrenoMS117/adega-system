@@ -53,6 +53,10 @@ api.interceptors.response.use(
 export const auth = {
   login: (data: LoginRequest): Promise<LoginResponse> =>
     api.post<LoginResponse>('/auth/login', data).then((r) => r.data),
+  requestPasswordReset: (email: string): Promise<{ message: string }> =>
+    api.post<{ message: string }>('/auth/password/request', { email }).then((r) => r.data),
+  resetPassword: (token: string, newPassword: string): Promise<{ message: string }> =>
+    api.post<{ message: string }>('/auth/password/reset', { token, newPassword }).then((r) => r.data),
 }
 
 // Produtos

@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import LoginPage from './pages/Login'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import ResetPasswordPage from './pages/auth/ResetPasswordPage'
 import PDVPage from './pages/pdv/PDVPage'
 import VendasPage from './pages/vendas/VendasPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
@@ -16,6 +18,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
       <Route path="/" element={<Navigate to="/pdv" replace />} />
 
       <Route
