@@ -148,6 +148,8 @@ docker-compose up --build
 
 ---
 
+Link de Acesso: https://frontend-production-6f6d.up.railway.app
+
 ## Estrutura do projeto
 
 ```
