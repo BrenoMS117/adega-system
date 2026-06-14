@@ -9,6 +9,7 @@ import com.adega.model.MovimentoEstoque;
 import com.adega.model.Usuario;
 import com.adega.model.VariacaoProduto;
 import com.adega.model.enums.TipoMovimento;
+import com.adega.model.enums.TipoNotificacao;
 import com.adega.repository.MovimentoEstoqueRepository;
 import com.adega.repository.UsuarioRepository;
 import com.adega.repository.VariacaoProdutoRepository;
@@ -27,6 +28,7 @@ public class EstoqueService {
     private final VariacaoProdutoRepository variacaoProdutoRepository;
     private final MovimentoEstoqueRepository movimentoEstoqueRepository;
     private final UsuarioRepository usuarioRepository;
+    private final NotificacaoService notificacaoService;
 
     @Transactional(readOnly = true)
     public List<EstoqueResponse> findAll(UUID adegaId, UUID categoriaId, String situacao) {
@@ -50,11 +52,27 @@ public class EstoqueService {
         VariacaoProduto variacao = loadVariacao(request.variacaoId());
         Usuario usuario = loadUsuario(usuarioId);
 
+        int estoqueAnterior = variacao.getEstoqueAtual();
+
         variacao.setEstoqueAtual(variacao.getEstoqueAtual() + request.quantidade());
         if (request.custoAquisicao() != null) {
             variacao.setCustoAquisicao(request.custoAquisicao());
         }
         variacaoProdutoRepository.save(variacao);
+
+        if (variacao.getEstoqueAtual() > variacao.getEstoqueMinimo()
+                && estoqueAnterior <= variacao.getEstoqueMinimo()) {
+            String produtoNome = variacao.getProduto().getNome() + " · " + variacao.getDescricao();
+            notificacaoService.criarParaTodosDonos(
+                    null,
+                    null,
+                    TipoNotificacao.SISTEMA,
+                    "Estoque reabastecido",
+                    "Estoque reabastecido: " + produtoNome + " agora tem "
+                            + variacao.getEstoqueAtual() + " unidades.",
+                    null
+            );
+        }
 
         MovimentoEstoque movimento = movimentoEstoqueRepository.save(MovimentoEstoque.builder()
                 .variacaoProduto(variacao)

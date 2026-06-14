@@ -10,6 +10,7 @@ import com.adega.model.*;
 import com.adega.model.enums.CanalVenda;
 import com.adega.model.enums.StatusVenda;
 import com.adega.model.enums.TipoMovimento;
+import com.adega.model.enums.TipoNotificacao;
 import com.adega.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,7 @@ public class VendaService {
     private final VariacaoProdutoRepository variacaoProdutoRepository;
     private final MovimentoEstoqueRepository movimentoEstoqueRepository;
     private final com.adega.repository.FechamentoCaixaRepository fechamentoCaixaRepository;
+    private final NotificacaoService notificacaoService;
 
     @Transactional
     public VendaResponse create(VendaRequest request, UUID usuarioId) {
@@ -131,6 +133,7 @@ public class VendaService {
 
             variacao.setEstoqueAtual(variacao.getEstoqueAtual() - quantidade);
             variacaoProdutoRepository.save(variacao);
+            checkEstoqueAlertas(variacao, adega.getId());
 
             movimentoEstoqueRepository.save(MovimentoEstoque.builder()
                     .variacaoProduto(variacao)
@@ -196,6 +199,32 @@ public class VendaService {
         }
 
         return toResponse(vendaRepository.save(venda));
+    }
+
+    private void checkEstoqueAlertas(VariacaoProduto variacao, UUID adegaId) {
+        String produtoNome = variacao.getProduto().getNome() + " · " + variacao.getDescricao();
+
+        if (variacao.getEstoqueAtual() == 0) {
+            notificacaoService.criarParaTodosDonos(
+                    null,
+                    adegaId,
+                    TipoNotificacao.ESTOQUE_CRITICO,
+                    "Estoque zerado",
+                    produtoNome + " está sem estoque. Reposição necessária.",
+                    null
+            );
+        } else if (variacao.getEstoqueAtual() <= variacao.getEstoqueMinimo()
+                && variacao.getEstoqueMinimo() > 0) {
+            notificacaoService.criarParaTodosDonos(
+                    null,
+                    adegaId,
+                    TipoNotificacao.ESTOQUE_BAIXO,
+                    "Estoque baixo",
+                    produtoNome + " está abaixo do mínimo (" + variacao.getEstoqueAtual()
+                            + " un. restantes, mínimo: " + variacao.getEstoqueMinimo() + ").",
+                    null
+            );
+        }
     }
 
     private Venda load(UUID id) {
