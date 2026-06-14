@@ -26,12 +26,12 @@ export function useCart() {
     localStorage.setItem(CART_KEY, JSON.stringify(cart))
   }, [cart])
 
-  const addToCart = (variacao: VariacaoProduto, produtoNome: string) => {
+  const addToCart = (variacao: VariacaoProduto, produtoNome: string, quantidade = 1) => {
     setCart((prev) => {
       const existing = prev.find((i) => i.variacaoId === variacao.id)
       if (existing) {
         return prev.map((i) =>
-          i.variacaoId === variacao.id ? { ...i, quantidade: i.quantidade + 1 } : i,
+          i.variacaoId === variacao.id ? { ...i, quantidade: i.quantidade + quantidade } : i,
         )
       }
       return [
@@ -41,7 +41,7 @@ export function useCart() {
           produtoNome,
           variacaoDescricao: variacao.descricao,
           precoUnitario: variacao.precoVenda,
-          quantidade: 1,
+          quantidade,
           descontoValor: 0,
         },
       ]
@@ -52,6 +52,14 @@ export function useCart() {
     setCart((prev) =>
       prev
         .map((i) => (i.variacaoId === variacaoId ? { ...i, quantidade: i.quantidade + delta } : i))
+        .filter((i) => i.quantidade > 0),
+    )
+  }
+
+  const setQuantidade = (variacaoId: string, quantidade: number) => {
+    setCart((prev) =>
+      prev
+        .map((i) => (i.variacaoId === variacaoId ? { ...i, quantidade } : i))
         .filter((i) => i.quantidade > 0),
     )
   }
@@ -79,6 +87,7 @@ export function useCart() {
     cart,
     addToCart,
     updateQuantidade,
+    setQuantidade,
     updateDesconto,
     removeItem,
     clearCart,

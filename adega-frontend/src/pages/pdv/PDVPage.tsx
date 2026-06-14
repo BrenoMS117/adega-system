@@ -1,11 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   ShoppingCart,
   X,
-  Plus,
   Minus,
   Search,
   Check,
@@ -50,11 +49,45 @@ const fmt = (v: number) =>
 
 interface VariacaoDialogProps {
   produto: Produto
-  onSelect: (variacao: VariacaoProduto) => void
+  onSelect: (variacao: VariacaoProduto, quantidade: number) => void
   onClose: () => void
 }
 
 function VariacaoDialog({ produto, onSelect, onClose }: VariacaoDialogProps) {
+  const [selecionada, setSelecionada] = useState<VariacaoProduto | null>(null)
+  const [qtd, setQtd] = useState(1)
+  const [qtdInput, setQtdInput] = useState('1')
+  const qtdRef = useRef<HTMLInputElement>(null)
+
+  function selecionarVariacao(v: VariacaoProduto) {
+    setSelecionada(v)
+    setQtd(1)
+    setQtdInput('1')
+  }
+
+  function ajustarQtd(delta: number) {
+    const nova = Math.max(1, qtd + delta)
+    setQtd(nova)
+    setQtdInput(String(nova))
+  }
+
+  function handleQtdChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value
+    setQtdInput(raw)
+    const parsed = parseInt(raw, 10)
+    if (!isNaN(parsed) && parsed >= 1) setQtd(parsed)
+  }
+
+  function handleQtdBlur() {
+    const parsed = parseInt(qtdInput, 10)
+    if (!qtdInput || isNaN(parsed) || parsed < 1) {
+      setQtd(1)
+      setQtdInput('1')
+    } else {
+      setQtdInput(String(parsed))
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
@@ -76,15 +109,25 @@ function VariacaoDialog({ produto, onSelect, onClose }: VariacaoDialogProps) {
 
         <p className="text-sm text-gray-500 mb-4">Selecione uma variação:</p>
 
-        <div className="space-y-2">
+        <div className="space-y-2 mb-4">
           {produto.variacoes.map((v, idx) => (
             <button
               key={v.id}
-              onClick={() => onSelect(v)}
-              className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors text-left group"
+              onClick={() => selecionarVariacao(v)}
+              className={`w-full flex items-center justify-between p-3 rounded-xl border transition-colors text-left group ${
+                selecionada?.id === v.id
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50'
+              }`}
             >
               <div>
-                <p className="text-sm font-medium text-gray-900 group-hover:text-blue-700">
+                <p
+                  className={`text-sm font-medium ${
+                    selecionada?.id === v.id
+                      ? 'text-blue-700'
+                      : 'text-gray-900 group-hover:text-blue-700'
+                  }`}
+                >
                   {v.descricao}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
@@ -117,6 +160,49 @@ function VariacaoDialog({ produto, onSelect, onClose }: VariacaoDialogProps) {
             </button>
           ))}
         </div>
+
+        {selecionada && (
+          <div className="border-t pt-4 space-y-3">
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Quantidade</p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => ajustarQtd(-1)}
+                  disabled={qtd <= 1}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-white border border-gray-200 hover:bg-gray-100 disabled:opacity-30 transition-colors"
+                >
+                  <Minus className="w-3 h-3 text-gray-600" />
+                </button>
+                <input
+                  ref={qtdRef}
+                  type="number"
+                  min="1"
+                  value={qtdInput}
+                  onChange={handleQtdChange}
+                  onBlur={handleQtdBlur}
+                  onFocus={(e) => e.target.select()}
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                  className="w-[60px] text-center text-sm font-bold text-gray-900 border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                {([1, 3, 5] as const).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => ajustarQtd(d)}
+                    className="px-2 py-1 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 transition-colors"
+                  >
+                    +{d}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              onClick={() => onSelect(selecionada, qtd)}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-semibold text-sm transition-colors"
+            >
+              Adicionar ao carrinho
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -317,13 +403,22 @@ export default function PDVPage() {
   })
 
   // ── Local state ────────────────────────────────────────────────────────────
-  const { cart, addToCart, updateQuantidade, updateDesconto, removeItem, clearCart, totalBruto, totalDesconto, totalLiquido } = useCart()
+  const { cart, addToCart, updateQuantidade, setQuantidade, updateDesconto, removeItem, clearCart, totalBruto, totalDesconto, totalLiquido } = useCart()
   const [selectedCategoria, setSelectedCategoria] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [showVariacaoDialog, setShowVariacaoDialog] = useState(false)
   const [selectedProduto, setSelectedProduto] = useState<Produto | null>(null)
   const [showPagamentoDialog, setShowPagamentoDialog] = useState(false)
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([])
+  const [qtdInputs, setQtdInputs] = useState<Record<string, string>>({})
+
+  function clearQtdInput(variacaoId: string) {
+    setQtdInputs((prev) => {
+      const next = { ...prev }
+      delete next[variacaoId]
+      return next
+    })
+  }
 
   // ── Derived data ───────────────────────────────────────────────────────────
   const categoriaNames = useMemo(() => {
@@ -352,8 +447,8 @@ export default function PDVPage() {
     }
   }
 
-  function handleVariacaoSelect(variacao: VariacaoProduto) {
-    if (selectedProduto) addToCart(variacao, selectedProduto.nome)
+  function handleVariacaoSelect(variacao: VariacaoProduto, quantidade: number) {
+    if (selectedProduto) addToCart(variacao, selectedProduto.nome, quantidade)
     setShowVariacaoDialog(false)
     setSelectedProduto(null)
   }
@@ -538,29 +633,65 @@ export default function PDVPage() {
                   </p>
                   <p className="text-[11px] text-gray-500 mb-2">{item.variacaoDescricao}</p>
 
-                  {/* Qty controls + line total */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => updateQuantidade(item.variacaoId, -1)}
-                        disabled={item.quantidade <= 1}
-                        className="w-6 h-6 flex items-center justify-center rounded-lg bg-white border border-gray-200 hover:bg-gray-100 disabled:opacity-30 transition-colors"
-                      >
-                        <Minus className="w-3 h-3 text-gray-600" />
-                      </button>
-                      <span className="w-7 text-center text-sm font-bold text-gray-900">
-                        {item.quantidade}
-                      </span>
-                      <button
-                        onClick={() => updateQuantidade(item.variacaoId, 1)}
-                        className="w-6 h-6 flex items-center justify-center rounded-lg bg-white border border-gray-200 hover:bg-gray-100 transition-colors"
-                      >
-                        <Plus className="w-3 h-3 text-gray-600" />
-                      </button>
-                    </div>
+                  {/* Line total */}
+                  <div className="flex justify-end mb-1.5">
                     <span className="text-sm font-semibold text-gray-900">
                       {fmt(item.precoUnitario * item.quantidade)}
                     </span>
+                  </div>
+
+                  {/* Qty controls */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        if (item.quantidade <= 1) {
+                          removeItem(item.variacaoId)
+                        } else {
+                          updateQuantidade(item.variacaoId, -1)
+                          clearQtdInput(item.variacaoId)
+                        }
+                      }}
+                      className="w-6 h-6 flex items-center justify-center rounded-lg bg-white border border-gray-200 hover:bg-gray-100 transition-colors"
+                    >
+                      <Minus className="w-3 h-3 text-gray-600" />
+                    </button>
+                    <input
+                      type="number"
+                      min="1"
+                      value={qtdInputs[item.variacaoId] !== undefined ? qtdInputs[item.variacaoId] : String(item.quantidade)}
+                      onChange={(e) => {
+                        const raw = e.target.value
+                        setQtdInputs((prev) => ({ ...prev, [item.variacaoId]: raw }))
+                        const parsed = parseInt(raw, 10)
+                        if (!isNaN(parsed) && parsed >= 1) {
+                          setQuantidade(item.variacaoId, parsed)
+                        }
+                      }}
+                      onBlur={() => {
+                        const raw = qtdInputs[item.variacaoId]
+                        if (raw === undefined) return
+                        const parsed = parseInt(raw, 10)
+                        if (!raw || isNaN(parsed) || parsed < 1) {
+                          setQuantidade(item.variacaoId, 1)
+                        }
+                        clearQtdInput(item.variacaoId)
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                      className="w-[60px] text-center text-sm font-bold text-gray-900 border border-gray-200 rounded-lg py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                    />
+                    {([1, 3, 5] as const).map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => {
+                          updateQuantidade(item.variacaoId, d)
+                          clearQtdInput(item.variacaoId)
+                        }}
+                        className="px-2 py-1 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 transition-colors"
+                      >
+                        +{d}
+                      </button>
+                    ))}
                   </div>
 
                   {/* Discount input */}
