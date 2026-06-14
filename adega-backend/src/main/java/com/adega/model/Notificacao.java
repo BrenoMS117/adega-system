@@ -45,7 +45,7 @@ public class Notificacao {
     @Column(nullable = false)
     private boolean lida = false;
 
-    @Column(name = "dados_extras", columnDefinition = "jsonb")
+    @Column(name = "dados_extras", columnDefinition = "TEXT")
     private String dadosExtras;
 
     @CreationTimestamp
