@@ -110,55 +110,52 @@ function VariacaoDialog({ produto, onSelect, onClose }: VariacaoDialogProps) {
         <p className="text-sm text-gray-500 mb-4">Selecione uma variação:</p>
 
         <div className="space-y-2 mb-4">
-          {produto.variacoes.map((v, idx) => (
-            <button
-              key={v.id}
-              onClick={() => selecionarVariacao(v)}
-              className={`w-full flex items-center justify-between p-3 rounded-xl border transition-colors text-left group ${
-                selecionada?.id === v.id
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50'
-              }`}
-            >
-              <div>
+          {produto.variacoes.map((v) => {
+            const semEstoque = v.estoqueAtual === 0
+            return (
+              <button
+                key={v.id}
+                onClick={() => { if (!semEstoque) selecionarVariacao(v) }}
+                className={`w-full flex items-center justify-between p-3 rounded-xl border transition-colors text-left group ${
+                  semEstoque
+                    ? 'opacity-40 cursor-not-allowed border-gray-200'
+                    : selecionada?.id === v.id
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50'
+                }`}
+              >
                 <p
                   className={`text-sm font-medium ${
-                    selecionada?.id === v.id
+                    !semEstoque && selecionada?.id === v.id
                       ? 'text-blue-700'
+                      : semEstoque
+                      ? 'text-gray-400'
                       : 'text-gray-900 group-hover:text-blue-700'
                   }`}
                 >
                   {v.descricao}
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Estoque:{' '}
-                  <span
-                    className={
-                      v.estoqueAtual === 0
-                        ? 'text-red-500 font-medium'
-                        : v.estoqueAtual <= v.estoqueMinimo
-                        ? 'text-orange-500 font-medium'
-                        : 'text-gray-600'
-                    }
-                  >
-                    {v.estoqueAtual}
+                <div className="flex items-center gap-2 shrink-0">
+                  {semEstoque ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-red-100 text-red-700">
+                      Sem estoque
+                    </span>
+                  ) : v.estoqueAtual <= v.estoqueMinimo ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
+                      Estoque baixo: {v.estoqueAtual} un.
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-green-100 text-green-700">
+                      {v.estoqueAtual} un. disponíveis
+                    </span>
+                  )}
+                  <span className="text-sm font-semibold text-blue-600">
+                    {fmt(v.precoVenda)}
                   </span>
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                    BADGE_COLORS[idx % BADGE_COLORS.length]
-                  }`}
-                >
-                  {v.descricao}
-                </span>
-                <span className="text-sm font-semibold text-blue-600">
-                  {fmt(v.precoVenda)}
-                </span>
-              </div>
-            </button>
-          ))}
+                </div>
+              </button>
+            )
+          })}
         </div>
 
         {selecionada && (
@@ -377,6 +374,7 @@ export default function PDVPage() {
   const { data: produtosList = [], isLoading: loadingProdutos } = useQuery({
     queryKey: ['produtos', { ativo: true }],
     queryFn: () => produtosApi.getProdutos({ ativo: true }),
+    refetchInterval: 60_000,
   })
 
   const { data: caixaStatus } = useQuery({
@@ -429,6 +427,8 @@ export default function PDVPage() {
   const filteredProdutos = useMemo(() => {
     const term = searchTerm.toLowerCase()
     return produtosList.filter((p) => {
+      const hasStock = p.variacoes.some((v) => v.estoqueAtual > 0)
+      if (!hasStock) return false
       const matchSearch = p.nome.toLowerCase().includes(term)
       const matchCat =
         selectedCategoria === 'all' || p.categoriaNome === selectedCategoria
@@ -440,7 +440,12 @@ export default function PDVPage() {
   function handleProdutoClick(produto: Produto) {
     if (produto.variacoes.length === 0) return
     if (produto.variacoes.length === 1) {
-      addToCart(produto.variacoes[0], produto.nome)
+      const variacao = produto.variacoes[0]
+      if (variacao.estoqueAtual === 0) {
+        toast.error('Produto sem estoque disponível')
+        return
+      }
+      addToCart(variacao, produto.nome)
     } else {
       setSelectedProduto(produto)
       setShowVariacaoDialog(true)
@@ -471,6 +476,21 @@ export default function PDVPage() {
   }
 
   function handleFinalizarVenda() {
+    const estoqueMap = new Map<string, number>()
+    for (const p of produtosList) {
+      for (const v of p.variacoes) {
+        estoqueMap.set(v.id, v.estoqueAtual)
+      }
+    }
+    for (const item of cart) {
+      const estoque = estoqueMap.get(item.variacaoId) ?? Infinity
+      if (item.quantidade > estoque) {
+        toast.error(
+          `${item.produtoNome} · ${item.variacaoDescricao}: estoque insuficiente (disponível: ${estoque} un.)`,
+        )
+        return
+      }
+    }
     setPagamentos([])
     setShowPagamentoDialog(true)
   }
@@ -562,7 +582,8 @@ export default function PDVPage() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {filteredProdutos.map((produto) => {
-                  const first = produto.variacoes[0]
+                  const inStockVariacoes = produto.variacoes.filter((v) => v.estoqueAtual > 0)
+                  const first = inStockVariacoes[0]
                   return (
                     <button
                       key={produto.id}
@@ -576,7 +597,7 @@ export default function PDVPage() {
                         <p className="text-xs text-gray-500 mb-2">{fmt(first.precoVenda)}</p>
                       )}
                       <div className="flex flex-wrap gap-1 mt-auto">
-                        {produto.variacoes.map((v, i) => (
+                        {inStockVariacoes.map((v, i) => (
                           <span
                             key={v.id}
                             className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
