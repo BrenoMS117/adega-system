@@ -255,3 +255,24 @@ export interface DashboardData {
   estoqueCritico: EstoqueItem[]
   vendasPorHora: Record<string, number>
 }
+
+export interface Notificacao {
+  id: string
+  tipo: string
+  titulo: string
+  mensagem: string
+  remetenteNome: string | null
+  adegaNome: string | null
+  lida: boolean
+  dadosExtras: string | null
+  createdAt: string
+}
+
+export interface NotificacaoCount {
+  count: number
+}
+
+export interface SolicitacaoReaberturaRequest {
+  adegaId: string
+  motivo: string
+}

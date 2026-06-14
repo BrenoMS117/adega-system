@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { adegas as adegasApi } from '../services/api'
-import EstoqueAlertaBell from './EstoqueAlertaBell'
+import NotificacaoBell from './NotificacaoBell'
 
 const SELECTED_ADEGA_KEY = 'selected_adega'
 
@@ -137,8 +137,8 @@ export default function Layout({ children }: Props) {
         {/* Spacer for FUNCIONARIO */}
         {!isDono() && <div className="flex-1" />}
 
-        {/* Alerta de estoque – DONO only */}
-        {isDono() && <EstoqueAlertaBell />}
+        {/* Notificações */}
+        <NotificacaoBell />
 
         {/* User + logout */}
         <div className="flex items-center gap-3 shrink-0">

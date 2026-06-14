@@ -12,8 +12,9 @@ import {
   FileSpreadsheet,
   FileText,
   Unlock,
+  MessageSquare,
 } from 'lucide-react'
-import { caixa as caixaApi, dashboard as dashboardApi } from '../../services/api'
+import { caixa as caixaApi, dashboard as dashboardApi, notificacoes as notificacoesApi } from '../../services/api'
 import type { FechamentoCaixa } from '../../types'
 import { exportFechamentoCSV, exportFechamentoPDF } from '../../utils/exportUtils'
 import { useAuth } from '../../hooks/useAuth'
@@ -199,6 +200,68 @@ function ReabrirDialog({ caixaAberto, isLoading, onConfirm, onClose }: ReabrirDi
   )
 }
 
+// ——— SolicitarReaberturaDialog ———
+
+interface SolicitarReaberturaDialogProps {
+  isLoading: boolean
+  onConfirm: (motivo: string) => void
+  onClose: () => void
+}
+
+function SolicitarReaberturaDialog({ isLoading, onConfirm, onClose }: SolicitarReaberturaDialogProps) {
+  const [motivo, setMotivo] = useState('')
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Solicitar Reabertura do Caixa</h2>
+          <button
+            onClick={onClose}
+            disabled={isLoading}
+            className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+          <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+          <span>Uma notificação será enviada ao responsável solicitando a reabertura do caixa.</span>
+        </div>
+
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Motivo da solicitação</label>
+          <textarea
+            rows={3}
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            placeholder="Descreva o motivo da solicitação de reabertura..."
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <div className="flex gap-3 pt-1">
+          <button
+            onClick={onClose}
+            disabled={isLoading}
+            className="flex-1 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => onConfirm(motivo)}
+            disabled={isLoading || !motivo.trim()}
+            className="flex-1 py-2 bg-blue-600 rounded-lg text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isLoading ? 'Enviando...' : 'Enviar Solicitação'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ——— Main Page ———
 
 export default function CaixaPage() {
@@ -216,6 +279,7 @@ export default function CaixaPage() {
   const [observacao, setObservacao] = useState('')
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [showReabrirDialog, setShowReabrirDialog] = useState(false)
+  const [showSolicitarDialog, setShowSolicitarDialog] = useState(false)
 
   useEffect(() => {
     if (!isDono()) return
@@ -255,6 +319,18 @@ export default function CaixaPage() {
     },
     onError: () => {
       toast.error('Erro ao fechar o caixa.')
+    },
+  })
+
+  const solicitarMutation = useMutation({
+    mutationFn: (motivo: string) =>
+      notificacoesApi.solicitarReabertura({ adegaId: selectedAdega!, motivo }),
+    onSuccess: () => {
+      toast.success('Solicitação enviada ao responsável.')
+      setShowSolicitarDialog(false)
+    },
+    onError: () => {
+      toast.error('Erro ao enviar solicitação.')
     },
   })
 
@@ -335,13 +411,21 @@ export default function CaixaPage() {
                 )}
               </div>
             </div>
-            {isDono() && (
+            {isDono() ? (
               <button
                 onClick={() => setShowReabrirDialog(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg shrink-0 transition-colors"
               >
                 <Unlock size={13} />
                 Reabrir Caixa
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowSolicitarDialog(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-lg shrink-0 transition-colors"
+              >
+                <MessageSquare size={13} />
+                Solicitar Reabertura
               </button>
             )}
           </div>
@@ -668,6 +752,16 @@ export default function CaixaPage() {
           onConfirm={() => reabrirMutation.mutate()}
           onClose={() => {
             if (!reabrirMutation.isPending) setShowReabrirDialog(false)
+          }}
+        />
+      )}
+
+      {showSolicitarDialog && (
+        <SolicitarReaberturaDialog
+          isLoading={solicitarMutation.isPending}
+          onConfirm={(motivo) => solicitarMutation.mutate(motivo)}
+          onClose={() => {
+            if (!solicitarMutation.isPending) setShowSolicitarDialog(false)
           }}
         />
       )}

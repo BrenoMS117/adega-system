@@ -21,6 +21,9 @@ import type {
   CategoriaResponse,
   AdegaResponse,
   AdegaRequest,
+  Notificacao,
+  NotificacaoCount,
+  SolicitacaoReaberturaRequest,
 } from '../types'
 
 const AUTH_KEY = 'adega_user'
@@ -196,6 +199,24 @@ export const adegas = {
 
   updateAdega: (id: string, data: AdegaRequest): Promise<AdegaResponse> =>
     api.put<AdegaResponse>(`/adegas/${id}`, data).then((r) => r.data),
+}
+
+// Notificações
+export const notificacoes = {
+  listar: (): Promise<Notificacao[]> =>
+    api.get<Notificacao[]>('/notificacoes').then((r) => r.data),
+
+  contarNaoLidas: (): Promise<NotificacaoCount> =>
+    api.get<NotificacaoCount>('/notificacoes/nao-lidas/count').then((r) => r.data),
+
+  marcarComoLida: (id: string): Promise<Notificacao> =>
+    api.patch<Notificacao>(`/notificacoes/${id}/lida`).then((r) => r.data),
+
+  marcarTodasComoLidas: (): Promise<void> =>
+    api.patch('/notificacoes/marcar-todas-lidas').then(() => undefined),
+
+  solicitarReabertura: (data: SolicitacaoReaberturaRequest): Promise<{ message: string }> =>
+    api.post<{ message: string }>('/notificacoes/solicitar-reabertura', data).then((r) => r.data),
 }
 
 export { api as apiClient }
