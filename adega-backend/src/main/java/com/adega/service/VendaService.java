@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -41,7 +42,7 @@ public class VendaService {
         Adega adega = adegaRepository.findById(request.adegaId())
                 .orElseThrow(() -> new ResourceNotFoundException("Adega não encontrada: " + request.adegaId()));
 
-        fechamentoCaixaRepository.findByAdegaIdAndData(adega.getId(), LocalDate.now())
+        fechamentoCaixaRepository.findByAdegaIdAndData(adega.getId(), LocalDate.now(ZoneId.of("America/Sao_Paulo")))
                 .ifPresent(f -> {
                     if (!f.isReaberto()) {
                         throw new BusinessException(

@@ -14,6 +14,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -21,13 +23,20 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DashboardService {
 
+    private static final ZoneId BRAZIL_ZONE = ZoneId.of("America/Sao_Paulo");
+
     private final VendaRepository vendaRepository;
     private final EstoqueService estoqueService;
 
     @Transactional(readOnly = true)
     public DashboardResponse getDashboard(UUID adegaId, LocalDate data) {
+        LocalDateTime startUTC = data.atStartOfDay(BRAZIL_ZONE)
+                .withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
+        LocalDateTime endUTC = ZonedDateTime.of(data, LocalTime.of(23, 59, 59), BRAZIL_ZONE)
+                .withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
+
         List<Venda> vendas = vendaRepository
-                .findByAdegaIdAndDataHoraBetween(adegaId, data.atStartOfDay(), data.atTime(LocalTime.MAX))
+                .findByAdegaIdAndDataHoraBetween(adegaId, startUTC, endUTC)
                 .stream()
                 .filter(v -> v.getStatus() == StatusVenda.CONCLUIDA)
                 .toList();

@@ -16,6 +16,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,6 +26,8 @@ import java.util.UUID;
 @RequestMapping("/api/vendas")
 @RequiredArgsConstructor
 public class VendaController {
+
+    private static final ZoneId BRAZIL_ZONE = ZoneId.of("America/Sao_Paulo");
 
     private final VendaService vendaService;
 
@@ -49,11 +54,13 @@ public class VendaController {
         UUID jwtAdegaId = (UUID) httpRequest.getAttribute("adegaId");
         UUID effectiveAdegaId = jwtAdegaId != null ? jwtAdegaId : adegaId;
 
-        LocalDate inicio = dataInicio != null ? dataInicio : LocalDate.now();
-        LocalDate fim = dataFim != null ? dataFim : LocalDate.now();
+        LocalDate inicio = dataInicio != null ? dataInicio : LocalDate.now(BRAZIL_ZONE);
+        LocalDate fim = dataFim != null ? dataFim : LocalDate.now(BRAZIL_ZONE);
 
-        LocalDateTime dataInicioDt = inicio.atStartOfDay();
-        LocalDateTime dataFimDt = fim.atTime(23, 59, 59);
+        LocalDateTime dataInicioDt = inicio.atStartOfDay(BRAZIL_ZONE)
+                .withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
+        LocalDateTime dataFimDt = ZonedDateTime.of(fim, LocalTime.of(23, 59, 59), BRAZIL_ZONE)
+                .withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
 
         return vendaService.findAll(effectiveAdegaId, dataInicioDt, dataFimDt, status, canal, usuarioId);
     }

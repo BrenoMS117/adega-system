@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.UUID;
 
 @RestController
@@ -25,6 +26,6 @@ public class DashboardController {
     public DashboardResponse getDashboard(
             @RequestParam UUID adegaId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate data) {
-        return dashboardService.getDashboard(adegaId, data != null ? data : LocalDate.now());
+        return dashboardService.getDashboard(adegaId, data != null ? data : LocalDate.now(ZoneId.of("America/Sao_Paulo")));
     }
 }

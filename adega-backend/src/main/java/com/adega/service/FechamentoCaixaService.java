@@ -23,12 +23,16 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class FechamentoCaixaService {
+
+    private static final ZoneId BRAZIL_ZONE = ZoneId.of("America/Sao_Paulo");
 
     private final FechamentoCaixaRepository fechamentoCaixaRepository;
     private final VendaRepository vendaRepository;
@@ -37,7 +41,7 @@ public class FechamentoCaixaService {
 
     @Transactional
     public FechamentoCaixaResponse fechar(FechamentoCaixaRequest request, UUID usuarioId) {
-        LocalDate hoje = LocalDate.now();
+        LocalDate hoje = LocalDate.now(BRAZIL_ZONE);
 
         java.util.Optional<FechamentoCaixa> existente =
                 fechamentoCaixaRepository.findByAdegaIdAndData(request.adegaId(), hoje);
@@ -100,7 +104,7 @@ public class FechamentoCaixaService {
     @Transactional
     public FechamentoCaixaResponse reabrir(UUID adegaId, UUID usuarioId) {
         FechamentoCaixa fechamento = fechamentoCaixaRepository
-                .findByAdegaIdAndData(adegaId, LocalDate.now())
+                .findByAdegaIdAndData(adegaId, LocalDate.now(BRAZIL_ZONE))
                 .orElseThrow(() -> new BusinessException("Nenhum fechamento encontrado para hoje"));
 
         if (fechamento.isReaberto()) {
@@ -119,7 +123,7 @@ public class FechamentoCaixaService {
 
     @Transactional(readOnly = true)
     public FechamentoCaixaResponse getCaixaAberto(UUID adegaId) {
-        LocalDate hoje = LocalDate.now();
+        LocalDate hoje = LocalDate.now(BRAZIL_ZONE);
 
         java.util.Optional<FechamentoCaixa> opt =
                 fechamentoCaixaRepository.findByAdegaIdAndData(adegaId, hoje);
@@ -164,8 +168,10 @@ public class FechamentoCaixaService {
     }
 
     private Aggregates aggregate(UUID adegaId, LocalDate data) {
-        LocalDateTime start = data.atStartOfDay();
-        LocalDateTime end = data.atTime(LocalTime.MAX);
+        LocalDateTime start = data.atStartOfDay(BRAZIL_ZONE)
+                .withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
+        LocalDateTime end = ZonedDateTime.of(data, LocalTime.of(23, 59, 59), BRAZIL_ZONE)
+                .withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
 
         List<Venda> vendas = vendaRepository
                 .findByAdegaIdAndDataHoraBetween(adegaId, start, end)

@@ -16,6 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -27,15 +30,22 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CmvService {
 
+    private static final ZoneId BRAZIL_ZONE = ZoneId.of("America/Sao_Paulo");
+
     private final VendaRepository vendaRepository;
     private final AdegaRepository adegaRepository;
 
     @Transactional(readOnly = true)
     public CmvResponse getCmv(UUID adegaId, LocalDate dataInicio, LocalDate dataFim) {
+        LocalDateTime startUTC = dataInicio.atStartOfDay(BRAZIL_ZONE)
+                .withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
+        LocalDateTime endUTC = ZonedDateTime.of(dataFim, LocalTime.of(23, 59, 59), BRAZIL_ZONE)
+                .withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
+
         List<Venda> vendas = vendaRepository.findWithFilters(
                 adegaId,
-                dataInicio.atStartOfDay(),
-                dataFim.atTime(23, 59, 59),
+                startUTC,
+                endUTC,
                 StatusVenda.CONCLUIDA,
                 null,
                 null);

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.UUID;
 
 @RestController
@@ -28,8 +29,9 @@ public class CmvController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim) {
 
-        LocalDate inicio = dataInicio != null ? dataInicio : LocalDate.now().withDayOfMonth(1);
-        LocalDate fim = dataFim != null ? dataFim : LocalDate.now();
+        LocalDate hoje = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        LocalDate inicio = dataInicio != null ? dataInicio : hoje.withDayOfMonth(1);
+        LocalDate fim = dataFim != null ? dataFim : hoje;
 
         return ResponseEntity.ok(cmvService.getCmv(adegaId, inicio, fim));
     }
